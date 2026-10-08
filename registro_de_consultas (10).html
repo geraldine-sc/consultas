@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Consultas - Atención al Usuario</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Custom scrollbar for tables */
+        .table-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        .toast {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            opacity: 0;
+            transform: translateY(100%);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col">
+
+    <header class="bg-blue-900 text-white shadow-md z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center min-w-0 mr-2">
+                    <i class="fas fa-headset text-xl sm:text-2xl mr-2 sm:mr-3 shrink-0"></i>
+                    <h1 class="text-base sm:text-xl font-bold truncate">Consultas - Atención a Usuarios</h1>
+                </div>
+                <div class="flex space-x-2 shrink-0">
+                    <button id="nav-form" class="px-3 py-2 rounded-md text-xs sm:text-sm font-medium bg-blue-800 hover:bg-blue-950 transition shadow-inner flex items-center">
+                        <i class="fas fa-plus sm:mr-1"></i> <span class="hidden sm:inline">Nueva Consulta</span><span class="sm:hidden">Nuevo</span>
+                    </button>
+                    <button id="nav-dashboard" class="px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-blue-800 transition flex items-center">
+                        <i class="fas fa-chart-bar sm:mr-1"></i> <span class="hidden sm:inline">Tablero de Control</span><span class="sm:hidden">Tablero</span>
+                    </button>
+                    <button type="button" onclick="openPinModal()" class="px-3 py-2 rounded-md text-xs sm:text-sm font-medium hover:bg-blue-800 transition flex items-center" title="Configuración">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <div class="max-w-7xl mx-auto">
+            
+            <div id="pin-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+                <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4">
+                    <h3 class="text-lg font-bold text-blue-900 mb-2"><i class="fas fa-lock mr-2"></i>Acceso Restringido</h3>
+                    <p class="text-sm text-gray-600 mb-4">Ingrese el PIN de seguridad para acceder a la configuración de Google Sheets.</p>
+                    <input type="password" id="pin-input" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-3 border mb-2 text-center text-2xl tracking-widest" placeholder="••••" maxlength="4">
+                    <p id="pin-error" class="text-red-500 text-xs hidden mb-4"><i class="fas fa-exclamation-triangle mr-1"></i>PIN incorrecto. Intente nuevamente.</p>
+                    <div class="flex justify-end space-x-2 mt-4">
+                        <button type="button" onclick="closePinModal()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded transition">Cancelar</button>
+                        <button type="button" onclick="verifyPin()" class="px-4 py-2 text-sm text-white bg-blue-900 hover:bg-blue-950 rounded shadow transition">Ingresar</button>
+                    </div>
+                </div>
+            </div>
+
+            <section id="section-form" class="max-w-2xl mx-auto">
+                <div class="bg-white shadow-lg rounded-xl overflow-hidden">
+                    <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                        <h2 class="text-lg font-semibold text-gray-800">Registrar Nueva Consulta</h2>
+                        <div class="flex items-center space-x-4">
+                            <span id="current-time-display" class="text-sm text-gray-500 font-mono bg-white px-2 py-1 rounded border hidden sm:inline-block"></span>
+                        </div>
+                    </div>
+                    
+                    <form id="consulta-form" class="p-6 space-y-6">
+                        
+                        <div id="script-config-section" class="hidden bg-gray-50 p-5 rounded-md border border-gray-200 shadow-inner mb-6">
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 class="text-base font-bold text-blue-900"><i class="fas fa-cog mr-1"></i> Configuración de la Base de Datos</h3>
+                                    <p class="text-xs text-gray-500 mt-1">URL de la Web App de Apps Script para enviar/recibir los datos.</p>
+                                </div>
+                                <button type="button" onclick="closeScriptConfig()" class="text-gray-400 hover:text-gray-600 p-1 bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition"><i class="fas fa-times"></i></button>
+                            </div>
+                            
+                            <div class="mb-5">
+                                <input type="url" id="script-url" placeholder="https://script.google.com/macros/s/.../exec" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border bg-white">
+                            </div>
+                            
+                            <!-- Instrucciones Integradas y Ocultas -->
+                            <div class="border-t border-gray-200 pt-4 mt-2">
+                                <h4 class="text-sm font-bold text-gray-800 mb-2 flex items-center">
+                                    <i class="fab fa-google text-green-600 mr-2"></i> Instrucciones para el Script
+                                </h4>
+                                <div class="prose prose-sm text-gray-600 bg-white p-4 border rounded shadow-sm text-xs">
+                                    <p class="mb-2">Asegúrate de tener estas 9 columnas (A hasta I) en la Fila 1:</p>
+                                    <p class="mb-3">
+                                        <code class="bg-gray-100 px-1 py-0.5 border rounded">Timestamp</code>, <code class="bg-gray-100 px-1 py-0.5 border rounded">Personal</code>, <code class="bg-gray-100 px-1 py-0.5 border rounded">Delegacion</code>, <code class="bg-gray-100 px-1 py-0.5 border rounded">Tema</code>, <code class="bg-gray-100 px-1 py-0.5 border rounded">Nombre</code>, <code class="bg-gray-100 px-1 py-0.5 border rounded">Documento</code>, <code class="bg-gray-100 px-1 py-0.5 border rounded">Telefono</code>, <code class="bg-gray-100 px-1 py-0.5 border rounded">Email</code>, <code class="bg-gray-100 px-1 py-0.5 border rounded">Descripcion</code>
+                                    </p>
+                                    <p class="font-semibold text-blue-900">Código a pegar en Extensiones > Apps Script:</p>
+                                    <div class="bg-gray-800 text-green-400 p-3 rounded-md mt-2 overflow-x-auto relative group">
+                                        <button type="button" onclick="copyCode()" class="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white p-1.5 rounded opacity-0 group-hover:opacity-100 transition shadow">
+                                            <i class="far fa-copy"></i>
+                                        </button>
+                                        <pre id="script-code" class="text-[10px] font-mono leading-tight"><code>const sheetName = 'Hoja 1'; // Cambia esto si tu hoja tiene otro nombre
+
+function doPost(e) {
+  try {
+    const doc = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = doc.getSheetByName(sheetName);
+    const data = JSON.parse(e.postData.contents);
+    const row = [data.timestamp || new Date(), data.personal_nombre || '', data.delegacion || '', data.tema || '', data.nombre || '', data.documento || '', data.telefono || '', data.email || '', data.descripcion || ''];
+    sheet.appendRow(row);
+    return ContentService.createTextOutput(JSON.stringify({ 'result': 'success' })).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ 'result': 'error', 'error': error.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  try {
+    const doc = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = doc.getSheetByName(sheetName);
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+    const rows = data.slice(1);
+    const result = rows.map(row => ({ timestamp: row[0], personal_nombre: row[1], delegacion: row[2], tema: row[3], nombre: row[4], documento: row[5], telefono: row[6], email: row[7], descripcion: row[8] }));
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ 'error': error.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}</code></pre>
+                                    </div>
+                                    <p class="mt-2 text-[10px] text-red-600"><strong>Importante:</strong> Recuerda publicar siempre como "Nueva Versión" en Administrar implementaciones.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Datos del Operador (Persistentes) -->
+                        <div class="grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4 border-b border-gray-200 pb-4">
+                            <div>
+                                <label for="delegacion" class="block text-sm font-medium text-gray-700">Delegación <span class="text-red-500">*</span></label>
+                                <select id="delegacion" name="delegacion" required class="mt-1 block w-full rounded-md border-blue-300 bg-blue-50 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border">
+                                    <option value="" disabled selected>Seleccione una delegación</option>
+                                    <option value="Central">Central</option>
+                                    <option value="Terminal Córdoba">Terminal Córdoba</option>
+                                    <option value="Río Cuarto">Río Cuarto</option>
+                                    <option value="Villa María">Villa María</option>
+                                    <option value="San Francisco">San Francisco</option>
+                                    <option value="Villa Dolores">Villa Dolores</option>
+                                    <option value="Villa Carlos Paz">Villa Carlos Paz</option>
+                                    <option value="Cruz del Eje">Cruz del Eje</option>
+                                    <option value="Jesús María">Jesús María</option>
+                                    <option value="Cosquín">Cosquín</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="personal_nombre" class="block text-sm font-medium text-gray-700">Agente <span class="text-red-500">*</span></label>
+                                <input type="text" id="personal_nombre" name="personal_nombre" required class="mt-1 block w-full rounded-md border-blue-300 bg-blue-50 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border" placeholder="Ej. Juan Pérez">
+                            </div>
+                        </div>
+
+                        <!-- Timestamp (Hidden from user input, shown visually above) -->
+                        <input type="hidden" id="timestamp" name="timestamp">
+
+                        <!-- Tema -->
+                        <div>
+                            <label for="tema" class="block text-sm font-medium text-gray-700">Tema <span class="text-red-500">*</span></label>
+                            <select id="tema" name="tema" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border bg-white">
+                                <option value="" disabled selected>Seleccione un tema</option>
+                                <option value="Subsidios">Subsidios</option>
+                                <option value="CiDi">CiDi (Ciudadano Digital)</option>
+                                <option value="Reclamo Agua">Reclamo - Agua</option>
+                                <option value="Reclamo Energia">Reclamo - Energía</option>
+                                <option value="Reclamo Transporte">Reclamo - Transporte</option>
+                                <option value="Otro">Otro</option>
+                            </select>
+                        </div>
+
+                        <!-- Datos del Usuario -->
+                        <div class="space-y-4 border-t border-gray-200 pt-4">
+                            <h3 class="text-sm font-semibold text-gray-600 tracking-wider">Datos del Usuario (Opcional)</h3>
+                            
+                            <div class="grid grid-cols-1 gap-y-4 sm:grid-cols-2 sm:gap-x-4">
+                                <div>
+                                    <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre / Razón Social</label>
+                                    <input type="text" id="nombre" name="nombre" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border">
+                                </div>
+                                <div>
+                                    <label for="documento" class="block text-sm font-medium text-gray-700">DNI / CUIL</label>
+                                    <input type="text" id="documento" name="documento" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border">
+                                </div>
+                                <div>
+                                    <label for="telefono" class="block text-sm font-medium text-gray-700">Teléfono</label>
+                                    <input type="tel" id="telefono" name="telefono" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border">
+                                </div>
+                                <div>
+                                    <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                                    <input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Descripción -->
+                        <div class="border-t border-gray-200 pt-4">
+                            <label for="descripcion" class="block text-sm font-medium text-gray-700">Descripción / Detalles de la consulta (Opcional)</label>
+                            <div class="mt-1">
+                                <textarea id="descripcion" name="descripcion" rows="4" class="shadow-sm focus:ring-blue-900 focus:border-blue-900 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md p-2"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="pt-2">
+                            <button type="submit" id="submit-btn" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow text-sm font-bold text-white bg-blue-900 hover:bg-blue-950 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-900 transition disabled:opacity-50">
+                                <span id="btn-text">Guardar Consulta</span>
+                                <i id="btn-spinner" class="fas fa-circle-notch fa-spin ml-2 hidden mt-0.5"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section id="section-dashboard" class="hidden">
+                <div class="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Tablero de Control</h2>
+                        <p class="text-sm text-gray-500">Estadísticas y detalle de registros (Google Sheets).</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="sync-btn" onclick="syncData()" class="px-4 py-2 bg-blue-900 text-white rounded-md text-sm font-medium hover:bg-blue-950 transition flex items-center shadow-sm">
+                            <i class="fas fa-sync-alt mr-2" id="sync-icon"></i> Sincronizar Datos
+                        </button>
+                        <button id="clear-data-btn" class="text-sm text-red-600 hover:text-red-800 border border-red-200 hover:bg-red-50 px-3 py-2 rounded transition shadow-sm" title="Borrar datos locales">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="bg-white p-4 rounded-lg shadow mb-6 grid grid-cols-1 sm:grid-cols-4 gap-4 border border-gray-200">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Periodo</label>
+                        <select id="filter-date" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border bg-gray-50">
+                            <option value="today">Hoy</option>
+                            <option value="month">Este Mes</option>
+                            <option value="all" selected>Histórico Total</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Delegación</label>
+                        <select id="filter-delegacion" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border bg-gray-50">
+                            <option value="all">Todas</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Agente</label>
+                        <select id="filter-agente" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border bg-gray-50">
+                            <option value="all">Todos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Buscar</label>
+                        <div class="relative">
+                            <input type="text" id="search-input" placeholder="DNI, Nombre, Tema..." class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-900 focus:ring-blue-900 sm:text-sm p-2 border pl-8">
+                            <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-900">
+                        <h3 class="text-sm font-medium text-gray-500 uppercase">Total Consultas</h3>
+                        <p id="stat-total" class="mt-1 text-3xl font-semibold text-gray-900">0</p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-600">
+                        <h3 class="text-sm font-medium text-gray-500 uppercase">Hoy</h3>
+                        <p id="stat-today" class="mt-1 text-3xl font-semibold text-gray-900">0</p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
+                        <h3 class="text-sm font-medium text-gray-500 uppercase">Subsidios</h3>
+                        <p id="stat-subsidios" class="mt-1 text-3xl font-semibold text-gray-900">0</p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+                        <h3 class="text-sm font-medium text-gray-500 uppercase">Tema más frecuente</h3>
+                        <p id="stat-top-tema" class="mt-1 text-xl font-semibold text-gray-900 truncate">-</p>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="bg-white shadow rounded-lg overflow-hidden border border-gray-200">
+                    <div class="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200 bg-gray-50">
+                        <h3 class="text-lg leading-6 font-bold text-gray-900">Registros Consultados</h3>
+                    </div>
+                    <div class="table-container overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition select-none w-min whitespace-nowrap" onclick="toggleSort('timestamp')">
+                                        Fecha/Hora <i class="fas fa-sort ml-1 text-gray-400" id="sort-icon-timestamp"></i>
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition select-none w-min whitespace-nowrap" onclick="toggleSort('agente')">
+                                        Agente / Del. <i class="fas fa-sort ml-1 text-gray-400" id="sort-icon-agente"></i>
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition select-none w-min whitespace-nowrap" onclick="toggleSort('tema')">
+                                        Tema <i class="fas fa-sort ml-1 text-gray-400" id="sort-icon-tema"></i>
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-min whitespace-nowrap">Usuario</th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-min whitespace-nowrap">Contacto</th>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider w-full">Descripción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="6" class="px-4 py-4 text-center text-sm text-gray-500">No hay datos registrados aún.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div id="toast" class="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center toast pointer-events-none z-50">
+        <i class="fas fa-check-circle mr-2 text-xl"></i>
+        <span id="toast-message">Consulta guardada exitosamente</span>
+    </div>
+
+    <script>
+        // --- State Management ---
+        const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxC1Q_KwgzgzDWUXk4ilFJOKOSDrg-gWiua-Xt_hUuqMVvQegSS4dytKUQc7iEMGA-9/exec";
+        let consultas = JSON.parse(localStorage.getItem('consultasData')) || [];
+        let remoteData = []; 
+        const SECURITY_PIN = "9326";
+        let currentSort = { col: 'timestamp', asc: false };
+
+        // --- DOM Elements ---
+        const navForm = document.getElementById('nav-form');
+        const navDashboard = document.getElementById('nav-dashboard');
+        const sectionForm = document.getElementById('section-form');
+        const sectionDashboard = document.getElementById('section-dashboard');
+        
+        const form = document.getElementById('consulta-form');
+        const scriptUrlInput = document.getElementById('script-url');
+        const timeDisplay = document.getElementById('current-time-display');
+        const timestampInput = document.getElementById('timestamp');
+        const submitBtn = document.getElementById('submit-btn');
+        const btnText = document.getElementById('btn-text');
+        const btnSpinner = document.getElementById('btn-spinner');
+        
+        const inputPersonal = document.getElementById('personal_nombre');
+        const inputDelegacion = document.getElementById('delegacion');
+
+        const tableBody = document.getElementById('table-body');
+        const searchInput = document.getElementById('search-input');
+        const clearBtn = document.getElementById('clear-data-btn');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+
+        // --- Clock Update ---
+        function updateClock() {
+            const now = new Date();
+            const formatted = now.toLocaleString('es-AR', { 
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+            timeDisplay.textContent = formatted;
+            timestampInput.value = now.toISOString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- Navigation ---
+        function showSection(section) {
+            if (section === 'form') {
+                sectionForm.classList.remove('hidden');
+                sectionDashboard.classList.add('hidden');
+                navForm.classList.add('bg-blue-800');
+                navDashboard.classList.remove('bg-blue-800');
+            } else {
+                sectionForm.classList.add('hidden');
+                sectionDashboard.classList.remove('hidden');
+                navDashboard.classList.add('bg-blue-800');
+                navForm.classList.remove('bg-blue-800');
+                
+                if(scriptUrlInput.value.trim() && remoteData.length === 0) {
+                    syncData();
+                } else {
+                    applyFilters();
+                }
+            }
+        }
+
+        navForm.addEventListener('click', () => showSection('form'));
+        navDashboard.addEventListener('click', () => showSection('dashboard'));
+
+        // --- STREAMING_CHUNK:Implementing PIN & Config Logic... ---
+        // --- PIN & Config Logic ---
+        function openPinModal() {
+            document.getElementById('pin-modal').classList.remove('hidden');
+            document.getElementById('pin-input').value = '';
+            document.getElementById('pin-error').classList.add('hidden');
+            setTimeout(() => document.getElementById('pin-input').focus(), 100);
+        }
+
+        function closePinModal() {
+            document.getElementById('pin-modal').classList.add('hidden');
+        }
+
+        function verifyPin() {
+            const pin = document.getElementById('pin-input').value;
+            if (pin === SECURITY_PIN) {
+                closePinModal();
+                document.getElementById('script-config-section').classList.remove('hidden');
+            } else {
+                document.getElementById('pin-error').classList.remove('hidden');
+            }
+        }
+
+        function closeScriptConfig() {
+            document.getElementById('script-config-section').classList.add('hidden');
+        }
+
+        // Allow pressing Enter on PIN input
+        document.getElementById('pin-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') verifyPin();
+        });
+
+        // --- Load saved Settings ---
+        const savedUrl = localStorage.getItem('scriptUrl');
+        if (savedUrl) {
+            scriptUrlInput.value = savedUrl;
+        } else {
+            scriptUrlInput.value = DEFAULT_SCRIPT_URL; // Default URL provided
+        }
+
+        scriptUrlInput.addEventListener('change', (e) => {
+            localStorage.setItem('scriptUrl', e.target.value);
+        });
+
+        inputPersonal.value = localStorage.getItem('personal_nombre') || '';
+        inputDelegacion.value = localStorage.getItem('delegacion') || '';
+
+        inputPersonal.addEventListener('change', (e) => localStorage.setItem('personal_nombre', e.target.value));
+        inputDelegacion.addEventListener('change', (e) => localStorage.setItem('delegacion', e.target.value));
+
+        // --- STREAMING_CHUNK:Handling Form Submissions... ---
+        // --- Form Submission ---
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            submitBtn.disabled = true;
+            btnText.textContent = 'Guardando...';
+            btnSpinner.classList.remove('hidden');
+
+            const formData = new FormData(form);
+            const dataObj = {};
+            formData.forEach((value, key) => {
+                dataObj[key] = value;
+            });
+            
+            const localDate = new Date(dataObj.timestamp);
+            dataObj.displayTime = localDate.toLocaleString('es-AR');
+
+            try {
+                const url = scriptUrlInput.value.trim();
+                if (url) {
+                    await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(dataObj)
+                    });
+                    remoteData.unshift(dataObj);
+                    populateFilterOptions();
+                }
+
+                saveLocal(dataObj);
+                showToast("Consulta guardada exitosamente", "success");
+                
+                // Preserve sticky fields and Script URL
+                const tempPersonal = inputPersonal.value;
+                const tempDelegacion = inputDelegacion.value;
+                const tempScriptUrl = scriptUrlInput.value;
+                
+                form.reset();
+                
+                inputPersonal.value = tempPersonal;
+                inputDelegacion.value = tempDelegacion;
+                scriptUrlInput.value = tempScriptUrl;
+                
+                updateClock();
+
+            } catch (error) {
+                console.error('Error:', error);
+                showToast("Error de conexión. Se guardó localmente.", "error");
+                saveLocal(dataObj);
+            } finally {
+                submitBtn.disabled = false;
+                btnText.textContent = 'Guardar Consulta';
+                btnSpinner.classList.add('hidden');
+            }
+        });
+
+        function saveLocal(data) {
+            consultas.unshift(data);
+            localStorage.setItem('consultasData', JSON.stringify(consultas));
+            if(!sectionDashboard.classList.contains('hidden')) {
+                applyFilters();
+            }
+        }
+
+        // --- STREAMING_CHUNK:Building Analytics & Table Rendering... ---
+        // --- Sorting Logic ---
+        function toggleSort(col) {
+            if (currentSort.col === col) {
+                currentSort.asc = !currentSort.asc;
+            } else {
+                currentSort.col = col;
+                currentSort.asc = true;
+            }
+            updateSortIcons();
+            applyFilters();
+        }
+
+        function updateSortIcons() {
+            const cols = ['timestamp', 'agente', 'tema'];
+            cols.forEach(c => {
+                const icon = document.getElementById(`sort-icon-${c}`);
+                if (icon) {
+                    icon.className = 'fas ml-1 text-gray-400 ';
+                    if (currentSort.col === c) {
+                        icon.className += currentSort.asc ? 'fa-sort-up text-blue-900' : 'fa-sort-down text-blue-900';
+                    } else {
+                        icon.className += 'fa-sort';
+                    }
+                }
+            });
+        }
+
+        // --- Fetch & Dashboard Logic ---
+        async function syncData() {
+            const url = scriptUrlInput.value.trim();
+            if (!url) {
+                showToast("URL de script no configurada", "error");
+                return;
+            }
+            
+            const syncIcon = document.getElementById('sync-icon');
+            syncIcon.classList.add('fa-spin');
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if(data.error) {
+                    console.error("Script error:", data.error);
+                    showToast("Error al obtener datos", "error");
+                } else {
+                    remoteData = data.reverse(); 
+                    showToast("Datos sincronizados con Sheets", "success");
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showToast("No se pudo conectar a Sheets. Mostrando datos locales.", "error");
+            } finally {
+                syncIcon.classList.remove('fa-spin');
+                populateFilterOptions();
+                applyFilters();
+            }
+        }
+
+        function populateFilterOptions() {
+            const dataSource = remoteData.length > 0 ? remoteData : consultas;
+            const delSelect = document.getElementById('filter-delegacion');
+            const agentSelect = document.getElementById('filter-agente');
+            const currentDel = delSelect.value;
+            const currentAgent = agentSelect.value;
+            
+            const delegations = [...new Set(dataSource.map(item => item.delegacion).filter(Boolean))].sort();
+            const agents = [...new Set(dataSource.map(item => item.personal_nombre).filter(Boolean))].sort();
+            
+            delSelect.innerHTML = '<option value="all">Todas</option>' + delegations.map(d => `<option value="${d}">${d}</option>`).join('');
+            delSelect.value = delegations.includes(currentDel) ? currentDel : 'all';
+            
+            agentSelect.innerHTML = '<option value="all">Todos</option>' + agents.map(a => `<option value="${a}">${a}</option>`).join('');
+            agentSelect.value = agents.includes(currentAgent) ? currentAgent : 'all';
+        }
+
+        function applyFilters() {
+            const dateFilter = document.getElementById('filter-date').value;
+            const delFilter = document.getElementById('filter-delegacion').value;
+            const agentFilter = document.getElementById('filter-agente').value;
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            
+            const dataSource = remoteData.length > 0 ? remoteData : consultas;
+            const now = new Date();
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            
+            let filteredData = dataSource.filter(item => {
+                if (searchTerm) {
+                    const matchSearch = (item.tema && item.tema.toLowerCase().includes(searchTerm)) ||
+                                        (item.nombre && item.nombre.toLowerCase().includes(searchTerm)) ||
+                                        (item.documento && String(item.documento).toLowerCase().includes(searchTerm)) ||
+                                        (item.descripcion && item.descripcion.toLowerCase().includes(searchTerm));
+                    if (!matchSearch) return false;
+                }
+                if (delFilter !== 'all' && item.delegacion !== delFilter) return false;
+                if (agentFilter !== 'all' && item.personal_nombre !== agentFilter) return false;
+                
+                if (dateFilter !== 'all') {
+                    if (!item.timestamp) return false;
+                    const itemDate = new Date(item.timestamp);
+                    if (dateFilter === 'today' && itemDate < startOfDay) return false;
+                    if (dateFilter === 'month' && itemDate < startOfMonth) return false;
+                }
+                return true;
+            });
+
+            // Ordenamiento de tabla (Sorting)
+            filteredData.sort((a, b) => {
+                let valA, valB;
+                if (currentSort.col === 'timestamp') {
+                    valA = new Date(a.timestamp || 0).getTime();
+                    valB = new Date(b.timestamp || 0).getTime();
+                } else if (currentSort.col === 'agente') {
+                    valA = (a.personal_nombre || '').toLowerCase();
+                    valB = (b.personal_nombre || '').toLowerCase();
+                } else if (currentSort.col === 'tema') {
+                    valA = (a.tema || '').toLowerCase();
+                    valB = (b.tema || '').toLowerCase();
+                }
+                
+                if (valA < valB) return currentSort.asc ? -1 : 1;
+                if (valA > valB) return currentSort.asc ? 1 : -1;
+                return 0;
+            });
+
+            renderTable(filteredData);
+            updateStats(filteredData);
+            updateSortIcons();
+        }
+
+        function renderTable(data) {
+            if (data.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="6" class="px-4 py-4 text-center text-sm text-gray-500">No hay datos registrados o que coincidan con los filtros.</td></tr>`;
+                return;
+            }
+            
+            tableBody.innerHTML = data.map(item => {
+                let dateDisplay = '-';
+                if(item.timestamp) {
+                    const d = new Date(item.timestamp);
+                    if(!isNaN(d.getTime())) {
+                        dateDisplay = d.toLocaleString('es-AR');
+                    } else {
+                        dateDisplay = item.timestamp; 
+                    }
+                }
+
+                // Limpiamos espacios laterales y vacíos para la descripción
+                const descText = item.descripcion ? item.descripcion.trim() : '-';
+
+                return `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">${dateDisplay}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        <span class="font-bold text-blue-900">${item.personal_nombre || '-'}</span><br>
+                        <span class="text-xs text-gray-500">${item.delegacion || '-'}</span>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-900 border border-blue-200">
+                            ${item.tema || '-'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        ${item.nombre || '<span class="text-gray-400 italic">Anónimo</span>'}<br>
+                        ${item.documento ? `<span class="text-xs text-gray-500 font-mono">DNI: ${item.documento}</span>` : ''}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        ${item.telefono ? `<i class="fas fa-phone text-xs w-4"></i> ${item.telefono}<br>` : ''}
+                        ${item.email ? `<i class="fas fa-envelope text-xs w-4"></i> ${item.email}` : ''}
+                        ${!item.telefono && !item.email ? '-' : ''}
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600 w-full min-w-[250px] whitespace-pre-wrap break-words">${descText}</td>
+                </tr>
+            `}).join('');
+        }
+
+        function updateStats(filteredData) {
+            document.getElementById('stat-total').textContent = filteredData.length;
+            
+            const today = new Date().toDateString();
+            const todayCount = filteredData.filter(c => {
+                if(!c.timestamp) return false;
+                const d = new Date(c.timestamp);
+                return !isNaN(d.getTime()) && d.toDateString() === today;
+            }).length;
+            document.getElementById('stat-today').textContent = todayCount;
+
+            const subsidiosCount = filteredData.filter(c => c.tema && c.tema.includes('Subsidios')).length;
+            document.getElementById('stat-subsidios').textContent = subsidiosCount;
+
+            if (filteredData.length > 0) {
+                const counts = {};
+                filteredData.forEach(c => {
+                    const temaKey = c.tema || 'Sin tema';
+                    counts[temaKey] = (counts[temaKey] || 0) + 1;
+                });
+                const topTema = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                document.getElementById('stat-top-tema').textContent = `${topTema} (${counts[topTema]})`;
+            } else {
+                document.getElementById('stat-top-tema').textContent = '-';
+            }
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('filter-date').addEventListener('change', applyFilters);
+        document.getElementById('filter-delegacion').addEventListener('change', applyFilters);
+        document.getElementById('filter-agente').addEventListener('change', applyFilters);
+        searchInput.addEventListener('input', applyFilters);
+
+        clearBtn.addEventListener('click', () => {
+            if(confirm('¿Estás seguro de que deseas borrar todos los registros locales? (No borrará la nube)')) {
+                consultas = [];
+                localStorage.removeItem('consultasData');
+                if (remoteData.length === 0) applyFilters();
+                showToast("Datos locales borrados", "success");
+            }
+        });
+
+        // --- Utilities ---
+        function showToast(message, type = "success") {
+            toastMessage.textContent = message;
+            if (type === "error") {
+                toast.classList.replace('bg-green-600', 'bg-red-600');
+                toast.querySelector('i').classList.replace('fa-check-circle', 'fa-exclamation-circle');
+            } else {
+                toast.classList.replace('bg-red-600', 'bg-green-600');
+                toast.querySelector('i').classList.replace('fa-exclamation-circle', 'fa-check-circle');
+            }
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function copyCode() {
+            const codeText = document.getElementById('script-code').innerText;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = codeText;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            try {
+                document.execCommand('copy');
+                showToast("Código copiado al portapapeles", "success");
+            } catch (err) {
+                console.error('Failed to copy', err);
+                showToast("Error al copiar", "error");
+            } finally {
+                document.body.removeChild(tempTextArea);
+            }
+        }
+    </script>
+</body>
+</html>
